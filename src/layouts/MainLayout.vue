@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
+    <q-header elevated class="q-pr-md">
       <q-toolbar>
         <q-btn
           flat
@@ -11,32 +11,40 @@
           @click="toggleLeftDrawer"
         />
 
-        <q-toolbar-title>
-          Quasar App
-        </q-toolbar-title>
+        <q-toolbar-title> 帮助中心 </q-toolbar-title>
 
-        <div>Quasar v{{ $q.version }}</div>
+        <div>登录邮箱</div>
       </q-toolbar>
     </q-header>
 
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
-      <q-list>
-        <q-item-label
-          header
-        >
-          Essential Links
-        </q-item-label>
+    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
+      <q-scroll-area class="fit">
+        <q-list>
+          <q-item-label header>
+            <img
+              src="../assets/cstcloud_logo.png"
+              alt="logo"
+              style="height: 2rem"
+            />
+          </q-item-label>
+          <q-item clickable v-ripple>
+            <q-item-section>新会话</q-item-section>
+            <q-item-section avatar>
+              <q-icon color="primary" name="add" />
+            </q-item-section>
+          </q-item>
 
-        <EssentialLink
-          v-for="link in linksList"
-          :key="link.title"
-          v-bind="link"
-        />
-      </q-list>
+          <q-separator class="q-mb-md" />
+          <EssentialLink
+            v-for="(link, index) in linksList"
+            :title="link.title"
+            :caption="link.caption"
+            :icon="link.icon"
+            :link="link.link"
+            :key="index"
+          />
+        </q-list>
+      </q-scroll-area>
     </q-drawer>
 
     <q-page-container>
@@ -46,61 +54,43 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import { ref } from "vue";
+import EssentialLink from "components/EssentialLink.vue";
 
 defineOptions({
-  name: 'MainLayout'
-})
+  name: "MainLayout",
+});
 
 const linksList = [
   {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
+    title: "常用链接1",
+    caption: "chat.quasar.dev",
+    icon: "chat",
+    link: "https://chat.quasar.dev",
   },
   {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
+    title: "常用链接2",
+    caption: "forum.quasar.dev",
+    icon: "record_voice_over",
+    link: "https://forum.quasar.dev",
   },
   {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
+    title: "常用链接3",
+    caption: "@quasarframework",
+    icon: "rss_feed",
+    link: "https://twitter.quasar.dev",
   },
   {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
+    title: "常用链接4",
+    caption: "@QuasarFramework",
+    icon: "public",
+    link: "https://facebook.quasar.dev",
   },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
-  }
-]
+];
 
-const leftDrawerOpen = ref(false)
+const leftDrawerOpen = ref(false);
 
-function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value
+function toggleLeftDrawer() {
+  leftDrawerOpen.value = !leftDrawerOpen.value;
 }
 </script>
