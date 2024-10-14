@@ -3,6 +3,7 @@
     <span
       id="typed-output"
       class="typing text-h5 text-weight-bold q-mt-xl"
+      v-if="captchaImageUrl ? false : true"
     ></span>
     <!-- <img
       alt="Quasar logo"
@@ -37,8 +38,7 @@
     </div>
     <div
       v-show="captchaImageUrl ? false : true"
-      class="q-pr-xl q-pl-md q-py-md"
-      style="width: 100%"
+      class="q-pr-xl q-pl-md q-py-md row justify-end"
     >
       <q-chat-message
         v-for="message in Messages"
@@ -51,6 +51,7 @@
         class="text-left"
         :bg-color="message.type === 'assistant' ? 'grey-2' : 'blue-7'"
         :text-color="message.type === 'user' ? 'white' : null"
+        :style="message.type === 'assistant' ? 'width: 100%' : 'width: 65%;'"
       >
         <template v-slot:default>
           <!-- Render the processed Markdown content using v-html -->
@@ -131,7 +132,10 @@ import axios from "axios";
 import { useQuasar } from "quasar";
 import { SSE } from "sse.js"; // Import SSE from the library
 import MarkdownIt from "markdown-it"; // Import MarkdownIt
+import hljs from "highlight.js";
 import { v4 as uuidv4 } from "uuid"; // Use a library like uuid to generate unique IDs
+// import "highlight.js/styles/default.min.css";
+import "highlight.js/styles/github-dark.css";
 
 const $q = useQuasar();
 const API_URL = import.meta.env.VITE_API_URL;
@@ -150,13 +154,65 @@ const Messages = ref([]); // Store messages as an array
 const userInput = ref("");
 const captchaInput = ref(""); // Store user input for the captcha
 const captchaImageUrl = ref(null); // Store the captcha image URL
-const md = new MarkdownIt({ html: true, linkify: true });
+
+const md = new MarkdownIt({
+  linkify: true,
+  highlight: function (str, lang) {
+    // console.log("run");
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        // console.log("Highlighting with lang:", lang);
+        return hljs.highlight(str, { language: lang }).value;
+      } catch (__) {}
+    }
+
+    return ""; // 使用额外的默认转义
+  },
+});
 let currentBotMessageIndex = 0; // Track the current assistant message index for SSE
 let sseSource = null;
 
 // Method to process and render markdown content
 const renderMarkdown = (content) => {
-  return md.render(content); // Convert markdown to HTML
+  const htmlContent = md.render(content);
+
+  // Custom CSS for headings
+  const customStyles = `
+  <style>
+    h1{
+      font-size: 2.5em; /* 调整字体大小 */
+      font-weight: bold; /* 加粗 */
+    }
+        h2{
+      font-size: 2em; /* 调整字体大小 */
+      font-weight: bold; /* 加粗 */
+    }
+        h3{
+      font-size: 1.6em; /* 调整字体大小 */
+      font-weight: bold; /* 加粗 */
+    }
+        h4{
+      font-size: 1.2em; /* 调整字体大小 */
+      font-weight: bold; /* 加粗 */
+    }
+        a{
+      color:black
+    } 
+      pre{
+      background-color: black;
+      padding:1rem;
+      border-radius:1rem
+    }
+      pre 
+  </style>
+`;
+  const highlightedContent = htmlContent.replace(
+    /<pre><code class="language-(\w+)">/g,
+    '<span class="bg-dark q-pa-sm text-white rounded-borders">$1</span><pre><code class="language-$1 text-white">'
+  );
+
+  // Combine the styles with the rendered HTML content
+  return customStyles + highlightedContent;
 };
 
 const handleCopy = (text) => {
@@ -170,7 +226,7 @@ const handleCopy = (text) => {
 
 const handleLikeToggle = async (messageId) => {
   const message = Messages.value.find((msg) => msg.message_id === messageId);
-
+  // console.log("run");
   if (message) {
     try {
       // Determine the like status to send to the backend
@@ -273,6 +329,8 @@ const sendSSEPostRequest = () => {
           message_id: message_id,
           content: userInput.value,
           type: "user",
+          user_id: userID,
+          session_id: sessionId,
         });
 
         userInput.value = ""; // Clear the input after submission
@@ -299,6 +357,8 @@ const sendSSEPostRequest = () => {
               Messages.value.push({
                 type: "assistant",
                 content: "",
+                user_id: userID,
+                session_id: sessionId,
               });
               currentBotMessageIndex = Messages.value.length - 1; // Save the index of the assistant message
             }

@@ -15,6 +15,7 @@
   "dependencies": {
     "@quasar/extras": "^1.16.4",
     "axios": "^1.7.7",
+    "highlight.js": "^11.10.0",
     "markdown-it": "^14.1.0",
     "quasar": "^2.16.0",
     "sse.js": "^2.5.0",
