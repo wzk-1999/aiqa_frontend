@@ -2,15 +2,65 @@
   <div class="flex flex-center">
     <span
       id="typed-output"
-      class="typing text-h5 text-weight-bold q-mt-xl"
+      class="typing text-h5 text-weight-bold q-my-xl"
       v-if="captchaImageUrl ? false : true"
     ></span>
-    <!-- <img
-      alt="Quasar logo"
-      src="~assets/cas_logo.jpg"
-      style="width: 30%; height: 30%"
-    /> -->
-    <!-- Conditionally display the captcha image if available -->
+
+    <div class="q-pa-md full-width" v-if="showCards">
+      <div class="row q-gutter-md q-mb-md justify-center">
+        <q-card class="col-4">
+          <q-card-section class="bg-primary text-white">
+            <div class="text-h6">Our Changing Planet</div>
+            <div class="text-subtitle2">by John Doe</div>
+          </q-card-section>
+
+          <q-separator />
+
+          <q-card-actions align="right">
+            <q-btn flat>Action 1</q-btn>
+            <q-btn flat>Action 2</q-btn>
+          </q-card-actions>
+        </q-card>
+
+        <q-card class="col-4">
+          <q-card-section class="bg-purple text-white">
+            <div class="text-h6">Our Changing Planet</div>
+            <div class="text-subtitle2">by John Doe</div>
+          </q-card-section>
+
+          <q-card-actions align="around">
+            <q-btn flat>Action 1</q-btn>
+            <q-btn flat>Action 2</q-btn>
+          </q-card-actions>
+        </q-card>
+      </div>
+
+      <div class="row q-gutter-md justify-center">
+        <q-card class="col-4">
+          <q-card-section class="bg-teal text-white">
+            <div class="text-h6">Our Changing Planet</div>
+            <div class="text-subtitle2">by John Doe</div>
+          </q-card-section>
+
+          <q-card-actions vertical align="right">
+            <q-btn flat>Action 1</q-btn>
+            <q-btn flat>Action 2</q-btn>
+          </q-card-actions>
+        </q-card>
+
+        <q-card class="col-4">
+          <q-card-section class="bg-grey-8 text-white">
+            <div class="text-h6">Our Changing Planet</div>
+            <div class="text-subtitle2">by John Doe</div>
+          </q-card-section>
+
+          <q-card-actions vertical align="center">
+            <q-btn flat>Action 1</q-btn>
+            <q-btn flat>Action 2</q-btn>
+          </q-card-actions>
+        </q-card>
+      </div>
+    </div>
     <div v-if="captchaImageUrl" class="absolute-center">
       <q-img
         :src="captchaImageUrl"
@@ -86,7 +136,7 @@
         </template>
       </q-chat-message>
     </div>
-    <q-footer elevated class="bg-grey-1 q-pr-xl q-pl-md">
+    <q-footer class="bg-white q-pr-xl q-pl-md">
       <q-input
         rounded
         outlined
@@ -94,9 +144,10 @@
         :label="
           captchaImageUrl ? '继续使用之前，请完成人机校验' : '请输入您的问题'
         "
-        class="q-my-md"
+        class="q-mb-md"
         @keypress.enter="sendSSEPostRequest"
         :readonly="captchaImageUrl ? true : false"
+        type="textarea"
       >
         <q-tooltip
           class="text-subtitle1 text-center"
@@ -142,6 +193,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const isSending = ref(false);
 const iconName = ref("send");
+
 const tooltipText = ref("发送");
 
 // use watch, otherwise the icon can't render immediately
@@ -153,6 +205,7 @@ watch(isSending, (newValue) => {
 const Messages = ref([]); // Store messages as an array
 const userInput = ref("");
 const captchaInput = ref(""); // Store user input for the captcha
+const showCards = ref(false);
 const captchaImageUrl = ref(null); // Store the captcha image URL
 
 const md = new MarkdownIt({
@@ -334,6 +387,7 @@ const sendSSEPostRequest = () => {
         });
 
         userInput.value = ""; // Clear the input after submission
+        showCards.value = false;
 
         sseSource = SSE(`${API_URL}api/v1/chat/stream/`, {
           headers: {
@@ -463,8 +517,10 @@ onMounted(() => {
         });
         sessionStorage.setItem("user_id", response.data.tmp_user_id);
         sessionStorage.setItem("session_id", response.data.session_id);
+        showCards.value = true;
       } else {
         Messages.value = response.data.messages || [];
+        showCards.value = false;
       }
     })
     .catch((error) => {
@@ -483,8 +539,4 @@ defineOptions({
 });
 </script>
 
-<style scoped>
-.typing {
-  display: inline-block;
-}
-</style>
+<style scoped></style>
