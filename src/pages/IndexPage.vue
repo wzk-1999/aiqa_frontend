@@ -95,9 +95,7 @@
         :key="message.message_id"
         :text="[message.content]"
         :sent="message.type === 'user'"
-        :avatar="
-          message.type === 'assistant' ? './src/assets/cas_logo.jpg' : undefined
-        "
+        :avatar="message.type === 'assistant' ? '/cas_logo.jpg' : undefined"
         class="text-left"
         :bg-color="message.type === 'assistant' ? 'grey-2' : 'blue-7'"
         :text-color="message.type === 'user' ? 'white' : null"
@@ -259,22 +257,78 @@ const renderMarkdown = (content) => {
       pre 
   </style>
 `;
-  const highlightedContent = htmlContent.replace(
+  // 第一步：添加特定逻辑的 span 标签
+  const tempContent = htmlContent.replace(
     /<pre><code class="language-(\w+)">/g,
-    '<span class="bg-dark q-pa-sm text-white rounded-borders">$1</span><pre><code class="language-$1 text-white">'
+    '<span class="bg-dark q-pa-sm text-white rounded-borders">$1</span><pre><code class="language-$1">'
   );
 
-  // Combine the styles with the rendered HTML content
-  return customStyles + highlightedContent;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(tempContent, "text/html");
+
+  const codeElements = doc.querySelectorAll("pre code");
+  codeElements.forEach((code) => {
+    code.classList.add("text-white");
+  });
+
+  return customStyles + new XMLSerializer().serializeToString(doc.body);
 };
 
 const handleCopy = (text) => {
-  navigator.clipboard.writeText(text).then(() => {
-    $q.notify({
-      message: "复制成功",
-      type: "positive", // Success message
-    });
-  });
+  if (navigator.clipboard) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        $q.notify({
+          message: "复制成功",
+          type: "positive", // Success message
+        });
+      })
+      .catch((error) => {
+        console.error("使用 navigator.clipboard 复制失败：", error);
+        // 如果 navigator.clipboard 失败，尝试 document.execCommand('copy')
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          $q.notify({
+            message: "复制成功",
+            type: "positive", // Success message
+          });
+        } catch (err) {
+          console.error("复制失败：", err);
+          $q.notify({
+            message: "复制失败，请手动复制",
+            type: "negative", // Error message
+          });
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      });
+  } else {
+    // 如果不支持 navigator.clipboard，直接使用 document.execCommand('copy')
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      $q.notify({
+        message: "复制成功",
+        type: "positive", // Success message
+      });
+    } catch (err) {
+      console.error("复制失败：", err);
+      $q.notify({
+        message: "复制失败，请手动复制",
+        type: "negative", // Error message
+      });
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
 };
 
 const handleLikeToggle = async (messageId) => {

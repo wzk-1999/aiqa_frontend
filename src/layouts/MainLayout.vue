@@ -21,11 +21,7 @@
       <q-scroll-area class="fit">
         <q-list>
           <q-item-label header>
-            <img
-              src="../assets/cstcloud_logo.png"
-              alt="logo"
-              style="height: 2rem"
-            />
+            <img src="/cstcloud_logo.png" alt="logo" style="height: 2rem" />
           </q-item-label>
           <q-item clickable v-ripple>
             <q-item-section>新会话</q-item-section>
