@@ -6,7 +6,7 @@
       v-if="captchaImageUrl ? false : true"
     ></span>
 
-    <div class="q-pa-md full-width" v-if="showCards">
+    <div class="q-pa-md full-width" v-if="showCards && !captchaImageUrl">
       <div class="row q-gutter-md q-mb-md justify-center">
         <q-card class="col-4">
           <q-card-section class="bg-primary text-white">
@@ -88,7 +88,7 @@
     </div>
     <div
       v-show="captchaImageUrl ? false : true"
-      class="q-pr-xl q-pl-md q-py-md row justify-end"
+      class="q-pr-xl q-pl-md q-py-md row full-width justify-end"
     >
       <q-chat-message
         v-for="message in Messages"
@@ -510,9 +510,11 @@ let userID = sessionStorage.getItem("user_id");
 const finalUserID = userID && userID !== "undefined" ? userID : "";
 
 const generateCaptcha = () => {
+  console.log(userID);
   axios
     .get(`${API_URL}api/v1/get_captcha/${finalUserID}`, {
       responseType: "blob", // Important: set responseType to blob to handle the image
+      withCredentials: true, // Include cookies in the request
     })
     .then((captchaResponse) => {
       const url = URL.createObjectURL(captchaResponse.data);
@@ -528,27 +530,43 @@ const generateCaptcha = () => {
 };
 
 const submitCaptcha = () => {
-  axios
-    .post(`${API_URL}api/v1/verify_captcha/`, {
-      user_id: userID,
-      captcha_input: captchaInput.value,
-    })
-    .then((verifyResponse) => {
-      captchaInput.value = "";
-      $q.notify({
-        message: verifyResponse.data.message,
-        type: verifyResponse.data.result ? "positive" : "negative",
+  // console.log(captchaInput.value + " userid:" + userID);
+  if (captchaInput.value.trim()) {
+    axios
+      .post(
+        `${API_URL}api/v1/verify_captcha/`,
+        {
+          user_id: userID,
+          captcha_input: captchaInput.value,
+        },
+        {
+          withCredentials: true, // 发送凭据
+        }
+      )
+      .then((verifyResponse) => {
+        captchaInput.value = "";
+        $q.notify({
+          message: verifyResponse.data.message,
+          type: verifyResponse.data.result ? "positive" : "negative",
+        });
+        if (verifyResponse.data.result) {
+          captchaImageUrl.value = null;
+        } else {
+          generateCaptcha();
+        }
+      })
+      .catch((error) => {
+        $q.notify({
+          message: error,
+          type: "negative",
+        });
       });
-      if (verifyResponse.data.result) {
-        captchaImageUrl.value = null;
-      }
-    })
-    .catch((error) => {
-      $q.notify({
-        message: error,
-        type: "negative",
-      });
+  } else {
+    $q.notify({
+      message: "验证码不能为空",
+      type: "warning",
     });
+  }
 };
 
 onMounted(() => {
