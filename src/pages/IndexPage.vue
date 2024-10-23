@@ -3,7 +3,7 @@
     <span
       id="typed-output"
       class="typing text-h5 text-weight-bold q-my-xl"
-      v-if="captchaImageUrl ? false : true"
+      v-show="showCards && !captchaImageUrl"
     ></span>
 
     <div class="q-pa-md full-width" v-if="showCards && !captchaImageUrl">
@@ -102,11 +102,25 @@
         :style="message.type === 'assistant' ? 'width: 100%' : 'width: 65%;'"
       >
         <template v-slot:default>
-          <!-- Render the processed Markdown content using v-html -->
-          <div v-html="renderMarkdown(message.content)"></div>
+          <template v-if="isAssistantLoading && !message.content">
+            <q-circular-progress
+              indeterminate
+              rounded
+              size="2rem"
+              color="lime"
+              class="q-ma-md"
+            />
+          </template>
+          <template v-else>
+            <!-- Render the processed Markdown content using v-html -->
+            <div v-html="renderMarkdown(message.content)"></div>
+          </template>
         </template>
         <template v-slot:stamp>
-          <div class="q-pt-sm text-left q-gutter-sm">
+          <div
+            class="q-pt-sm text-left q-gutter-sm"
+            v-show="message.message_id"
+          >
             <q-icon
               name="content_copy"
               size="xs"
@@ -206,6 +220,8 @@ const captchaInput = ref(""); // Store user input for the captcha
 const showCards = ref(false);
 const captchaImageUrl = ref(null); // Store the captcha image URL
 
+const isAssistantLoading = ref(false);
+
 const md = new MarkdownIt({
   linkify: true,
   highlight: function (str, lang) {
@@ -246,15 +262,13 @@ const renderMarkdown = (content) => {
       font-size: 1.2em; /* 调整字体大小 */
       font-weight: bold; /* 加粗 */
     }
-        a{
-      color:black
-    } 
+
       pre{
       background-color: black;
       padding:1rem;
       border-radius:1rem
     }
-      pre 
+      pre
   </style>
 `;
   // 第一步：添加特定逻辑的 span 标签
@@ -269,6 +283,12 @@ const renderMarkdown = (content) => {
   const codeElements = doc.querySelectorAll("pre code");
   codeElements.forEach((code) => {
     code.classList.add("text-white");
+  });
+
+  // 处理链接，添加样式类
+  const linkElements = doc.querySelectorAll("a");
+  linkElements.forEach((link) => {
+    link.classList.add("bg-grey-2", "text-blue");
   });
 
   return customStyles + new XMLSerializer().serializeToString(doc.body);
@@ -414,6 +434,7 @@ const stopSSERequest = () => {
   // console.log("连接已打开，正在关闭...");
   if (sseSource) {
     sseSource.close();
+    isAssistantLoading.value = false;
     sseSource = null; // 可选：将 sseSource 设置为 null 以表示没有活动的连接
   }
   isSending.value = false;
@@ -456,22 +477,29 @@ const sendSSEPostRequest = () => {
           }),
         });
         isSending.value = true;
+        // 当开始发送请求时，设置isAssistantLoading为true
+        isAssistantLoading.value = true;
+
+        if (currentBotMessageIndex === 0) {
+          Messages.value.push({
+            type: "assistant",
+            content: "",
+            user_id: userID,
+            session_id: sessionId,
+          });
+          currentBotMessageIndex = Messages.value.length - 1;
+        }
+
         // Listen for incoming messages
         sseSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.message) {
-            // Add a new message if it's the first chunk from the bot
-            if (currentBotMessageIndex === 0) {
-              Messages.value.push({
-                type: "assistant",
-                content: "",
-                user_id: userID,
-                session_id: sessionId,
-              });
-              currentBotMessageIndex = Messages.value.length - 1; // Save the index of the assistant message
-            }
+            // 收到第一个消息块时，将isAssistantLoading设置为false
+            isAssistantLoading.value = false;
+            // Save the index of the assistant message
+            currentBotMessageIndex = Messages.value.length - 1;
             // Concatenate the incoming chunk to the current assistant message
-            Messages.value[currentBotMessageIndex].content += data.message;
+            Messages.value[currentBotMessageIndex].content = data.message;
           } else if (data.messages_id) {
             isSending.value = false;
             Messages.value[currentBotMessageIndex].message_id =
@@ -495,7 +523,6 @@ const sendSSEPostRequest = () => {
     });
   }
 };
-
 const handleSSEAvatarClick = () => {
   if (isSending.value) {
     stopSSERequest();
@@ -510,7 +537,7 @@ let userID = sessionStorage.getItem("user_id");
 const finalUserID = userID && userID !== "undefined" ? userID : "";
 
 const generateCaptcha = () => {
-  console.log(userID);
+  //console.log(userID);
   axios
     .get(`${API_URL}api/v1/get_captcha/${finalUserID}`, {
       responseType: "blob", // Important: set responseType to blob to handle the image
