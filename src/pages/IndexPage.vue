@@ -88,7 +88,8 @@
     </div>
     <div
       v-show="captchaImageUrl ? false : true"
-      class="q-pr-xl q-pl-md q-py-md row full-width justify-end"
+      class="q-pr-xl q-pl-md q-py-md row full-width justify-end chatMessageContainer"
+      ref="chatMessageContainer"
     >
       <q-chat-message
         v-for="message in Messages"
@@ -189,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import Typed from "typed.js";
 import axios from "axios";
 import { useQuasar } from "quasar";
@@ -205,6 +206,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const isSending = ref(false);
 const iconName = ref("send");
+const chatMessageContainer = ref(null);
 
 const tooltipText = ref("发送");
 
@@ -464,6 +466,13 @@ const sendSSEPostRequest = () => {
         userInput.value = ""; // Clear the input after submission
         showCards.value = false;
 
+        nextTick(() => {
+          if (chatMessageContainer.value) {
+            chatMessageContainer.value.scrollTop =
+              chatMessageContainer.value.scrollHeight;
+          }
+        });
+
         sseSource = SSE(`${API_URL}api/v1/chat/stream/`, {
           headers: {
             "Content-Type": "application/json",
@@ -658,16 +667,27 @@ const startTypingEffect = (currentMessageIndex) => {
     typingInterval = setInterval(() => {
       if (current_index < fullMessage.length) {
         displayedMessage += fullMessage[current_index];
-        // console.log(currentMessageIndex);
+        // console.log(current_index);
         Messages.value[currentMessageIndex].content = displayedMessage;
         current_index++;
       } else {
         clearInterval(typingInterval);
         typingInterval = null;
         messageQueue.shift();
+        // console.log("after chunk:", current_index);
         startTypingEffect(currentMessageIndex);
       }
     }, 50);
+
+    // 滚动聊天消息容器到底部
+    nextTick(() => {
+      // console.log("run");
+      if (chatMessageContainer.value) {
+        // console.log(chatMessageContainer.value.scrollHeight);
+        chatMessageContainer.value.scrollTop =
+          chatMessageContainer.value.scrollHeight;
+      }
+    });
   }
 };
 
@@ -676,4 +696,10 @@ defineOptions({
 });
 </script>
 
-<style scoped></style>
+<style scoped>
+.chatMessageContainer {
+  /* adjust to make the height reasonable, but must set, if didn't set auto scroll won't work*/
+  height: 69vh;
+  overflow: auto;
+}
+</style>
