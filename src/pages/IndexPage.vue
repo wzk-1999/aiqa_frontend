@@ -488,23 +488,28 @@ const sendSSEPostRequest = () => {
             session_id: sessionId,
           });
           currentBotMessageIndex = Messages.value.length - 1;
+          current_index = 0;
         }
 
         // Listen for incoming messages
         sseSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.message) {
+            // console.log("currentBotMessageIndex is" + currentBotMessageIndex);
             // 收到第一个消息块时，将isAssistantLoading设置为false
             isAssistantLoading.value = false;
-            // Save the index of the assistant message
-            currentBotMessageIndex = Messages.value.length - 1;
-            // Concatenate the incoming chunk to the current assistant message
-            Messages.value[currentBotMessageIndex].content = data.message;
+            addMessageToQueue(data.message, currentBotMessageIndex);
           } else if (data.messages_id) {
             isSending.value = false;
             Messages.value[currentBotMessageIndex].message_id =
               data.messages_id;
             currentBotMessageIndex = 0;
+          } else if (data.error) {
+            $q.notify({
+              message: data.error,
+              type: "positive", // success message
+              timeout: 800,
+            });
           }
         };
 
@@ -523,6 +528,7 @@ const sendSSEPostRequest = () => {
     });
   }
 };
+
 const handleSSEAvatarClick = () => {
   if (isSending.value) {
     stopSSERequest();
@@ -632,6 +638,38 @@ onUnmounted(() => {
     typedInstance.destroy(); // Stop typing and cleanup
   }
 });
+
+// 消息队列
+const messageQueue = [];
+let typingInterval = null;
+let current_index = 0;
+
+const addMessageToQueue = (message, currentMessageIndex) => {
+  messageQueue.push(message);
+  if (!typingInterval) {
+    startTypingEffect(currentMessageIndex);
+  }
+};
+
+const startTypingEffect = (currentMessageIndex) => {
+  if (messageQueue.length > 0) {
+    const fullMessage = messageQueue[0];
+    let displayedMessage = Messages.value[currentMessageIndex].content || "";
+    typingInterval = setInterval(() => {
+      if (current_index < fullMessage.length) {
+        displayedMessage += fullMessage[current_index];
+        // console.log(currentMessageIndex);
+        Messages.value[currentMessageIndex].content = displayedMessage;
+        current_index++;
+      } else {
+        clearInterval(typingInterval);
+        typingInterval = null;
+        messageQueue.shift();
+        startTypingEffect(currentMessageIndex);
+      }
+    }, 50);
+  }
+};
 
 defineOptions({
   name: "IndexPage",
