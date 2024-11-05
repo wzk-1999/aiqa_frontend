@@ -92,7 +92,7 @@
       ref="chatMessageContainer"
     >
       <q-chat-message
-        v-for="message in Messages"
+        v-for="(message, index) in Messages"
         :key="message.message_id"
         :text="[message.content]"
         :sent="message.type === 'user'"
@@ -114,7 +114,7 @@
           </template>
           <template v-else>
             <!-- Render the processed Markdown content using v-html -->
-            <div v-html="renderMarkdown(message.content)"></div>
+            <div v-html="renderMarkdown(index, message.content)"></div>
           </template>
         </template>
         <template v-slot:stamp>
@@ -226,6 +226,7 @@ const isAssistantLoading = ref(false);
 
 const md = new MarkdownIt({
   linkify: true,
+  html: true,
   highlight: function (str, lang) {
     // console.log("run");
     if (lang && hljs.getLanguage(lang)) {
@@ -238,12 +239,40 @@ const md = new MarkdownIt({
     return ""; // 使用额外的默认转义
   },
 });
+
 let currentBotMessageIndex = 0; // Track the current assistant message index for SSE
 let sseSource = null;
 
 // Method to process and render markdown content
-const renderMarkdown = (content) => {
-  const htmlContent = md.render(content);
+const renderMarkdown = (messageIndex, content) => {
+  let cleanedContent;
+
+  if (Messages.value[messageIndex].quotes) {
+    // 用于记录匹配到的次数，即当前要获取的quotes中的索引位置
+    let matchCount = 0;
+
+    // 根据##\d+\$\$中的数字索引，从Messages.value[messageIndex].quotes中获取对应内容并替换
+    const quoteRegex = /##(\d+)\$\$/g;
+    cleanedContent = content.replace(quoteRegex, (match, index) => {
+      // 根据匹配到的次数获取quotes中的对应内容
+      const quoteContent = Messages.value[messageIndex].quotes[matchCount];
+
+      matchCount++;
+      // console.log(
+      //   "<details><summary>查看更多</summary>" + quoteContent + "</details>"
+      // );
+      return (
+        "\n<details><summary>查看更多</summary>\n" + quoteContent + "</details>"
+      );
+    });
+  } else {
+    cleanedContent = content;
+  }
+  if (messageIndex === 1) {
+    console.log(cleanedContent);
+  }
+
+  const htmlContent = md.render(cleanedContent);
 
   // Custom CSS for headings
   const customStyles = `
@@ -264,13 +293,34 @@ const renderMarkdown = (content) => {
       font-size: 1.2em; /* 调整字体大小 */
       font-weight: bold; /* 加粗 */
     }
-
       pre{
       background-color: black;
       padding:1rem;
       border-radius:1rem
     }
-      pre
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 0.5em; border: 1px solid #ddd; text-align: center; }
+      th { background-color: #f4f4f4; font-weight: bold; }
+      img{
+      display:block;
+      margin:1rem;
+      }
+      summary{
+      color: blue;
+      padding: 0.5rem;
+      list-style: none; /* 确保列表样式不冲突 */
+      cursor: pointer; /* 鼠标样式 */
+      }
+      summary::before {
+        content: "▶"; /* 添加黑三角 */
+        display: inline-block;
+        margin-right: 5px; /* 调整与文字的距离 */
+        transform: rotate(0deg); /* 默认状态下的三角形方向 */
+        transition: transform 0.2s ease; /* 动画效果 */
+      }
+      details[open] summary::before {
+        transform: rotate(90deg); /* 展开时旋转黑三角 */
+      }
   </style>
 `;
   // 第一步：添加特定逻辑的 span 标签
@@ -292,7 +342,9 @@ const renderMarkdown = (content) => {
   linkElements.forEach((link) => {
     link.classList.add("bg-grey-2", "text-blue");
   });
-
+  if (messageIndex === 1) {
+    console.log(doc.body);
+  }
   return customStyles + new XMLSerializer().serializeToString(doc.body);
 };
 
@@ -499,7 +551,7 @@ const sendSSEPostRequest = () => {
           currentBotMessageIndex = Messages.value.length - 1;
           current_index = 0;
         }
-
+        let isQuote = false;
         // Listen for incoming messages
         sseSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
@@ -507,7 +559,12 @@ const sendSSEPostRequest = () => {
             // console.log("currentBotMessageIndex is" + currentBotMessageIndex);
             // 收到第一个消息块时，将isAssistantLoading设置为false
             isAssistantLoading.value = false;
-            addMessageToQueue(data.message, currentBotMessageIndex);
+            if (data.quote) {
+              Messages.value[currentBotMessageIndex].quotes = data.quote;
+              isQuote = true;
+            }
+
+            addMessageToQueue(data.message, currentBotMessageIndex, isQuote);
           } else if (data.messages_id) {
             isSending.value = false;
             Messages.value[currentBotMessageIndex].message_id =
@@ -634,6 +691,7 @@ onMounted(() => {
         showCards.value = true;
       } else {
         Messages.value = response.data.messages || [];
+
         showCards.value = false;
       }
     })
@@ -653,17 +711,18 @@ const messageQueue = [];
 let typingInterval = null;
 let current_index = 0;
 
-const addMessageToQueue = (message, currentMessageIndex) => {
+const addMessageToQueue = (message, currentMessageIndex, isQuote) => {
   messageQueue.push(message);
   if (!typingInterval) {
-    startTypingEffect(currentMessageIndex);
+    startTypingEffect(currentMessageIndex, isQuote);
   }
 };
 
 const startTypingEffect = (currentMessageIndex) => {
   if (messageQueue.length > 0) {
     const fullMessage = messageQueue[0];
-    let displayedMessage = Messages.value[currentMessageIndex].content || "";
+    // let displayedMessage = Messages.value[currentMessageIndex].content || "";
+    let displayedMessage = fullMessage.substring(0, current_index);
     typingInterval = setInterval(() => {
       if (current_index < fullMessage.length) {
         displayedMessage += fullMessage[current_index];
