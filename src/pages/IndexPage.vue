@@ -247,7 +247,10 @@ let sseSource = null;
 const renderMarkdown = (messageIndex, content) => {
   let cleanedContent;
 
-  if (Messages.value[messageIndex].quotes) {
+  if (
+    Messages.value[messageIndex].quotes &&
+    Messages.value[messageIndex].quote_file
+  ) {
     // 用于记录匹配到的次数，即当前要获取的quotes中的索引位置
     let matchCount = 0;
 
@@ -256,22 +259,31 @@ const renderMarkdown = (messageIndex, content) => {
     cleanedContent = content.replace(quoteRegex, (match, index) => {
       // 根据匹配到的次数获取quotes中的对应内容
       const quoteContent = Messages.value[messageIndex].quotes[matchCount];
-
+      const quoteCaption = Messages.value[messageIndex].quote_file[matchCount];
+      // console.log(quoteCaption);
       matchCount++;
-      // console.log(
-      //   "<details><summary>查看更多</summary>" + quoteContent + "</details>"
-      // );
+
       return (
-        "\n<details><summary>查看更多</summary>\n" + quoteContent + "</details>"
+        "\n<details><summary>" +
+        quoteCaption +
+        " ...</summary>\n" +
+        quoteContent +
+        "</details>\n"
       );
-    });
+    }); // 回车是必须的
   } else {
     cleanedContent = content;
   }
-  if (messageIndex === 1) {
-    console.log(cleanedContent);
-  }
+  // if (messageIndex === 1) {
+  //   console.log(cleanedContent);
+  // }
 
+  cleanedContent = cleanedContent.replace(
+    /\*\*(['"])(.*?)(['"])\*\*/g,
+    "**$2**"
+  );
+
+  console.log(cleanedContent);
   const htmlContent = md.render(cleanedContent);
 
   // Custom CSS for headings
@@ -310,6 +322,7 @@ const renderMarkdown = (messageIndex, content) => {
       padding: 0.5rem;
       list-style: none; /* 确保列表样式不冲突 */
       cursor: pointer; /* 鼠标样式 */
+      font-style: normal;
       }
       summary::before {
         content: "▶"; /* 添加黑三角 */
@@ -321,6 +334,14 @@ const renderMarkdown = (messageIndex, content) => {
       details[open] summary::before {
         transform: rotate(90deg); /* 展开时旋转黑三角 */
       }
+      details{
+        background: #ede8e8;
+        border-left: 0.5rem solid #ccc;
+        padding: 0.5em 1rem;
+        margin: 1rem 0.5rem;
+        font-style: italic;
+        line-height: 1.8;
+      }  
   </style>
 `;
   // 第一步：添加特定逻辑的 span 标签
@@ -342,9 +363,9 @@ const renderMarkdown = (messageIndex, content) => {
   linkElements.forEach((link) => {
     link.classList.add("bg-grey-2", "text-blue");
   });
-  if (messageIndex === 1) {
-    console.log(doc.body);
-  }
+  // if (messageIndex === 1) {
+  //   console.log(doc.body);
+  // }
   return customStyles + new XMLSerializer().serializeToString(doc.body);
 };
 
@@ -551,7 +572,6 @@ const sendSSEPostRequest = () => {
           currentBotMessageIndex = Messages.value.length - 1;
           current_index = 0;
         }
-        let isQuote = false;
         // Listen for incoming messages
         sseSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
@@ -561,10 +581,11 @@ const sendSSEPostRequest = () => {
             isAssistantLoading.value = false;
             if (data.quote) {
               Messages.value[currentBotMessageIndex].quotes = data.quote;
-              isQuote = true;
+              Messages.value[currentBotMessageIndex].quote_file =
+                data.quote_file;
             }
 
-            addMessageToQueue(data.message, currentBotMessageIndex, isQuote);
+            addMessageToQueue(data.message, currentBotMessageIndex);
           } else if (data.messages_id) {
             isSending.value = false;
             Messages.value[currentBotMessageIndex].message_id =
@@ -711,10 +732,10 @@ const messageQueue = [];
 let typingInterval = null;
 let current_index = 0;
 
-const addMessageToQueue = (message, currentMessageIndex, isQuote) => {
+const addMessageToQueue = (message, currentMessageIndex) => {
   messageQueue.push(message);
   if (!typingInterval) {
-    startTypingEffect(currentMessageIndex, isQuote);
+    startTypingEffect(currentMessageIndex);
   }
 };
 
