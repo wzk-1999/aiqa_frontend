@@ -146,6 +146,14 @@
               </q-icon>
             </template>
           </div>
+          <RelatedQuestion
+            :relatedQuestions="yourRelatedQuestionsArray"
+            v-if="
+              message.type === 'assistant' &&
+              index == Messages.length - 1 &&
+              yourRelatedQuestionsArray.length > 0
+            "
+          />
         </template>
       </q-chat-message>
     </div>
@@ -158,7 +166,7 @@
           captchaImageUrl ? '继续使用之前，请完成人机校验' : '请输入您的问题'
         "
         class="q-mb-md"
-        @keypress.enter="sendSSEPostRequest"
+        @keypress.enter="sendSSEPostRequest(userInput)"
         :readonly="captchaImageUrl ? true : false"
         type="textarea"
       >
@@ -190,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import Typed from "typed.js";
 import axios from "axios";
 import { useQuasar } from "quasar";
@@ -198,11 +206,36 @@ import { SSE } from "sse.js"; // Import SSE from the library
 import MarkdownIt from "markdown-it"; // Import MarkdownIt
 import hljs from "highlight.js";
 import { v4 as uuidv4 } from "uuid"; // Use a library like uuid to generate unique IDs
-// import "highlight.js/styles/default.min.css";
 import "highlight.js/styles/github-dark.css";
+import { useRoute } from "vue-router";
+import RelatedQuestion from "../components/RelatedQuestion.vue";
+import { useSessionStore } from "src/stores/session_ids";
+import { useclickedQuestionIndexStore } from "../stores/clickedQuestionIndex";
+
+const route = useRoute();
+const current_session_index = computed(() => {
+  return route.params.current_session_index
+    ? parseInt(route.params.current_session_index, 10)
+    : 0;
+});
 
 const $q = useQuasar();
 const API_URL = import.meta.env.VITE_API_URL;
+
+const clickedQuestionIndexStore = useclickedQuestionIndexStore();
+watch(
+  () => clickedQuestionIndexStore.clickedQuestionIndex,
+  (newValue) => {
+    if (newValue !== null) {
+      const question =
+        yourRelatedQuestionsArray[
+          clickedQuestionIndexStore.clickedQuestionIndex
+        ];
+      // console.log(question.question);
+      sendSSEPostRequest(question.question);
+    }
+  }
+);
 
 const isSending = ref(false);
 const iconName = ref("send");
@@ -255,7 +288,8 @@ const renderMarkdown = (messageIndex, content) => {
     let matchCount = 0;
 
     // 根据##\d+\$\$中的数字索引，从Messages.value[messageIndex].quotes中获取对应内容并替换
-    const quoteRegex = /##(\d+)\$\$/g;
+    const quoteRegex = /##(\d+)\$\$[。.;；]*/g;
+    // 假如引用内容后面还有符号，把他删掉，以免影响后面的渲染
     cleanedContent = content.replace(quoteRegex, (match, index) => {
       // 根据匹配到的次数获取quotes中的对应内容
       const quoteContent = Messages.value[messageIndex].quotes[matchCount];
@@ -266,11 +300,11 @@ const renderMarkdown = (messageIndex, content) => {
       return (
         "\n<details><summary>" +
         quoteCaption +
-        " ...</summary>\n" +
+        " ...</summary>\n\n" +
         quoteContent +
-        "</details>\n"
+        "</details>\n\n"
       );
-    }); // 回车是必须的
+    }); // 回车是必须的, 两个回车防止<http://help.cstnet.cn/redianwenti/zhuanyongmima.html> 被当成闭合的http: 标签，告诉markdown这是markdown不再是html了
   } else {
     cleanedContent = content;
   }
@@ -283,7 +317,7 @@ const renderMarkdown = (messageIndex, content) => {
     "**$2**"
   );
 
-  console.log(cleanedContent);
+  // console.log(cleanedContent);
   const htmlContent = md.render(cleanedContent);
 
   // Custom CSS for headings
@@ -341,7 +375,7 @@ const renderMarkdown = (messageIndex, content) => {
         margin: 1rem 0.5rem;
         font-style: italic;
         line-height: 1.8;
-      }  
+      }
   </style>
 `;
   // 第一步：添加特定逻辑的 span 标签
@@ -515,22 +549,23 @@ const stopSSERequest = () => {
   isSending.value = false;
 };
 
-const sendSSEPostRequest = () => {
-  if (userInput.value.trim()) {
+const sendSSEPostRequest = (question) => {
+  if (question) {
     axios.get(`${API_URL}api/v1/check/captcha/necessity/`).then((response) => {
       if (response.data.captcha_required) {
         generateCaptcha();
         return;
       } else {
-        const sessionId = sessionStorage.getItem("session_id");
+        const sessionId = JSON.parse(sessionStorage.getItem("session_ids"))[
+          current_session_index.value
+        ];
         const userID = sessionStorage.getItem("user_id");
-        const question = userInput.value;
         const message_id = uuidv4();
 
         // Push the user message with a unique ID
         Messages.value.push({
           message_id: message_id,
-          content: userInput.value,
+          content: question,
           type: "user",
           user_id: userID,
           session_id: sessionId,
@@ -620,12 +655,23 @@ const handleSSEAvatarClick = () => {
   if (isSending.value) {
     stopSSERequest();
   } else {
-    sendSSEPostRequest();
+    sendSSEPostRequest(userInput.value);
   }
 };
 
+const yourRelatedQuestionsArray = [
+  {
+    question: "如何设置客户专用密码",
+  },
+  {
+    question: "小米手机通过SSL安全收发邮件",
+  },
+  {
+    question: "POP3设置",
+  },
+];
+
 let typedInstance = null;
-let sessionId = sessionStorage.getItem("session_id");
 let userID = sessionStorage.getItem("user_id");
 const finalUserID = userID && userID !== "undefined" ? userID : "";
 
@@ -671,6 +717,7 @@ const submitCaptcha = () => {
         });
         if (verifyResponse.data.result) {
           captchaImageUrl.value = null;
+          fetchAndHandleData();
         } else {
           generateCaptcha();
         }
@@ -689,9 +736,16 @@ const submitCaptcha = () => {
   }
 };
 
-onMounted(() => {
-  const finalSessionId =
-    sessionId && sessionId !== "undefined" ? sessionId : "";
+const fetchAndHandleData = () => {
+  const sessionId = JSON.parse(sessionStorage.getItem("session_ids"));
+  let finalSessionId = "";
+  if (sessionId) {
+    finalSessionId = sessionId[current_session_index.value];
+    if (finalSessionId === undefined) {
+      finalSessionId = "";
+    }
+  }
+  // console.log(finalSessionId);
 
   axios
     .get(
@@ -707,8 +761,14 @@ onMounted(() => {
           showCursor: false,
           loop: false,
         });
-        sessionStorage.setItem("user_id", response.data.tmp_user_id);
-        sessionStorage.setItem("session_id", response.data.session_id);
+        if (!finalUserID) {
+          sessionStorage.setItem("user_id", response.data.tmp_user_id);
+        }
+        if (!finalSessionId) {
+          const sessionStore = useSessionStore();
+          sessionStore.addSessionId(response.data.session_id);
+        }
+        Messages.value = [];
         showCards.value = true;
       } else {
         Messages.value = response.data.messages || [];
@@ -717,9 +777,23 @@ onMounted(() => {
       }
     })
     .catch((error) => {
-      console.error("查询聊天记录历史请求错误：", error);
+      $q.notify({
+        message: `查询聊天记录历史请求错误：${error}`,
+        type: "negative",
+      });
     });
+};
+
+onMounted(() => {
+  fetchAndHandleData();
 });
+
+watch(
+  () => route.params.current_session_index,
+  () => {
+    fetchAndHandleData();
+  }
+);
 
 onUnmounted(() => {
   if (typedInstance) {

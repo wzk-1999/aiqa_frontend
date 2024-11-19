@@ -2,47 +2,45 @@
   <q-item
     clickable
     tag="a"
-    target="_blank"
     :href="props.link"
+    :class="props.isActive ? 'bg-grey-12 rounded-borders' : ''"
   >
-    <q-item-section
-      v-if="props.icon"
-      avatar
-    >
-      <q-icon :name="props.icon" />
+    <q-item-section v-if="props.icon" avatar>
+      <q-icon
+        :name="props.icon"
+        :class="props.isActive ? 'text-primary' : ''"
+      />
     </q-item-section>
 
     <q-item-section>
       <q-item-label>{{ props.title }}</q-item-label>
-      <q-item-label caption>{{ props.caption }}</q-item-label>
     </q-item-section>
   </q-item>
 </template>
 
 <script setup>
 defineOptions({
-  name: 'EssentialLink'
-})
+  name: "RecentChat",
+});
 
 const props = defineProps({
   title: {
     type: String,
-    required: true
-  },
-
-  caption: {
-    type: String,
-    default: ''
+    required: true,
   },
 
   link: {
     type: String,
-    default: '#'
+    default: "#",
   },
 
   icon: {
     type: String,
-    default: ''
-  }
-})
+    default: "",
+  },
+  isActive: {
+    type: Boolean,
+    default: false,
+  },
+});
 </script>

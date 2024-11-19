@@ -92,3 +92,26 @@ See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-
 邮箱绑定手机号后，配置客户端需要使用客户端专用密码。 请参见http://help.cstnet.cn/redianwenti/zhuanyongmima.html 中说明。
 
 中国科学院邮件系统服务器信息参见：http://help.cstnet.cn/changjianwenti/youjianshoufa/xitongcanshu.html
+
+---
+
+5. 点击 "完成" 按钮后，即可开始收发邮件 ##1$$。
+
+如需查看账户详细情况：
+
+6. 可以在收件箱右上角点击齿轮图标 ##2$$。
+7. 之后可以选择相应的账户进行管理操作：mailtest@cstnet.cn
+
+---
+
+<details><summary>查看更多</summary>
+
+![https://help.cstnet.cn/image/mi-pop_4.png](/image/常见问题文档/客户端设置/如何使用小米手机设置POP3帐号通过SSL安全连接收发邮件/image4.png)
+
+5\. 点击"完成"按钮后，即可收发邮件。
+
+![https://help.cstnet.cn/image/mi-pop_5.png](/image/常见问题文档/客户端设置/如何使用小米手机设置POP3帐号通过SSL安全连接收发邮件/image5.png)
+
+</details>
+
+请参见<http://help.cstnet.cn/redianwenti/zhuanyongmima.html>中说明。
