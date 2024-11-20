@@ -19,25 +19,42 @@
         class="q-ma-none q-pa-none"
         style="min-width: 2rem"
       >
-        <q-icon name="mdi-lightbulb-on-outline" />
+        <q-icon
+          name="mdi-lightbulb-on-outline"
+          :class="{
+            'text-blue-14': isHovered[index],
+          }"
+        />
       </q-item-section>
+
       <q-item-section
         @mouseenter="highlightQuestion(index)"
         @mouseleave="unhighlightQuestion(index)"
-        style="margin-right: 0rem"
+        style="margin-right: 0rem; max-width: fit-content"
         :class="{
           'cursor-pointer text-blue-14 rounded-borders': isHovered[index],
         }"
         @click="recordClickedQuestionIndex(index)"
       >
-        <q-item-label>{{ relatedQuestion.question }}</q-item-label>
+        <q-tooltip
+          anchor="top right"
+          self="top left"
+          :offset="[0, 30]"
+          class="text-subtitle2"
+        >
+          追问此问题
+        </q-tooltip>
+
+        <q-item-label>
+          {{ relatedQuestion }}
+        </q-item-label>
       </q-item-section>
     </q-item>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useclickedQuestionIndexStore } from "../stores/clickedQuestionIndex";
 
 defineOptions({
@@ -52,7 +69,11 @@ const props = defineProps({
   },
 });
 
-const isHovered = ref(Array(props.relatedQuestions.length).fill(false));
+const isHovered = ref([]);
+
+watch(props.relatedQuestions, (newQuestions) => {
+  isHovered.value = Array(newQuestions.length).fill(false);
+});
 
 const recordClickedQuestionIndex = (index) => {
   // 获取Pinia store实例

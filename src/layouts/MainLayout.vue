@@ -124,7 +124,7 @@ const ChatList = computed(() => {
       ? parseInt(router.currentRoute.value.params.current_session_index, 10)
       : 0;
   return session_ids.map((_, index) => ({
-    title: `会话${index}`,
+    title: `会话${index + 1}`,
     icon: "chat",
     link: `/chat/${index}`,
     isActive: currentChatId === index,

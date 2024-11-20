@@ -228,11 +228,11 @@ watch(
   (newValue) => {
     if (newValue !== null) {
       const question =
-        yourRelatedQuestionsArray[
+        yourRelatedQuestionsArray.value[
           clickedQuestionIndexStore.clickedQuestionIndex
         ];
-      // console.log(question.question);
-      sendSSEPostRequest(question.question);
+      // console.log(question);
+      sendSSEPostRequest(question);
     }
   }
 );
@@ -313,7 +313,7 @@ const renderMarkdown = (messageIndex, content) => {
   // }
 
   cleanedContent = cleanedContent.replace(
-    /\*\*(['"])(.*?)(['"])\*\*/g,
+    /\*\*(['"“‘])(.*?)([”'"’])\*\*/g,
     "**$2**"
   );
 
@@ -573,6 +573,8 @@ const sendSSEPostRequest = (question) => {
 
         userInput.value = ""; // Clear the input after submission
         showCards.value = false;
+        yourRelatedQuestionsArray.value = [];
+        sessionStorage.removeItem(`relatedQuestions_${sessionId}`);
 
         nextTick(() => {
           if (chatMessageContainer.value) {
@@ -626,10 +628,17 @@ const sendSSEPostRequest = (question) => {
             Messages.value[currentBotMessageIndex].message_id =
               data.messages_id;
             currentBotMessageIndex = 0;
+          } else if (data.related_questions) {
+            yourRelatedQuestionsArray.value = data.related_questions;
+            sessionStorage.setItem(
+              `relatedQuestions_${sessionId}`,
+              JSON.stringify(yourRelatedQuestionsArray.value)
+            );
+            // console.log(yourRelatedQuestionsArray.value);
           } else if (data.error) {
             $q.notify({
               message: data.error,
-              type: "positive", // success message
+              type: "negative",
               timeout: 800,
             });
           }
@@ -644,7 +653,7 @@ const sendSSEPostRequest = (question) => {
     });
   } else {
     $q.notify({
-      message: "您没有输入内容哦",
+      message: "您没有输入内容或选中相关问题哦",
       type: "warning", // success message
       timeout: 800,
     });
@@ -659,17 +668,18 @@ const handleSSEAvatarClick = () => {
   }
 };
 
-const yourRelatedQuestionsArray = [
-  {
-    question: "如何设置客户专用密码",
-  },
-  {
-    question: "小米手机通过SSL安全收发邮件",
-  },
-  {
-    question: "POP3设置",
-  },
-];
+const yourRelatedQuestionsArray = ref([]);
+
+const retrieveRelatedQuestionsFromSessionStorage = (sessionId) => {
+  const storedQuestions = sessionStorage.getItem(
+    `relatedQuestions_${sessionId}`
+  );
+
+  if (storedQuestions) {
+    return JSON.parse(storedQuestions);
+  }
+  return [];
+};
 
 let typedInstance = null;
 let userID = sessionStorage.getItem("user_id");
@@ -745,8 +755,6 @@ const fetchAndHandleData = () => {
       finalSessionId = "";
     }
   }
-  // console.log(finalSessionId);
-
   axios
     .get(
       `${API_URL}api/v1/inquiry/?session_id=${finalSessionId}&tmp_user_id=${finalUserID}`
@@ -767,6 +775,7 @@ const fetchAndHandleData = () => {
         if (!finalSessionId) {
           const sessionStore = useSessionStore();
           sessionStore.addSessionId(response.data.session_id);
+          finalSessionId = sessionId[current_session_index.value];
         }
         Messages.value = [];
         showCards.value = true;
@@ -782,6 +791,9 @@ const fetchAndHandleData = () => {
         type: "negative",
       });
     });
+  yourRelatedQuestionsArray.value =
+    retrieveRelatedQuestionsFromSessionStorage(finalSessionId);
+  // console.log(yourRelatedQuestionsArray.value);
 };
 
 onMounted(() => {
