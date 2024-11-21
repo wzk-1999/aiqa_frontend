@@ -775,7 +775,9 @@ const fetchAndHandleData = () => {
         if (!finalSessionId) {
           const sessionStore = useSessionStore();
           sessionStore.addSessionId(response.data.session_id);
-          finalSessionId = sessionId[current_session_index.value];
+          finalSessionId = JSON.parse(sessionStorage.getItem("session_ids"))[
+            current_session_index.value
+          ];
         }
         Messages.value = [];
         showCards.value = true;
